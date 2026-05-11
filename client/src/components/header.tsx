@@ -61,6 +61,11 @@ export function Header({ cartItemCount = 0, onCartClick }: HeaderProps) {
           </NavigationMenu>
 
           <div className="flex items-center gap-2">
+            <Link href="/reporte-credito">
+              <Button variant="outline" className="hidden sm:flex" data-testid="button-credit-report">
+                Reporte de Crédito
+              </Button>
+            </Link>
             <Link href="/consultas">
               <Button variant="default" className="hidden sm:flex" data-testid="button-book-consultation">
                 Agendar Consulta

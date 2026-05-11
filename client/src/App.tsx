@@ -9,6 +9,7 @@ import Home from "@/pages/home";
 import TemplateDetail from "@/pages/template-detail";
 import Checkout from "@/pages/checkout";
 import Consultations from "@/pages/consultations";
+import CreditReport from "@/pages/credit-report";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/plantilla/:id" component={TemplateDetail} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/consultas" component={Consultations} />
+      <Route path="/reporte-credito" component={CreditReport} />
       <Route component={NotFound} />
     </Switch>
   );
