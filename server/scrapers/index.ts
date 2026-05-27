@@ -1,38 +1,32 @@
 import { doctoraliaAdapter } from "./adapters/doctoralia";
-import { clinicaAdapters, getDeepLinks } from "./adapters/clinicas-directas";
+import { buildAdapterFromConfig, buildDeepLinks } from "./adapters/clinicas-directas";
 import type { ScraperAdapter, ScraperQuery, ScrapedSlot, AdapterResult } from "./types";
-
-const ALL_ADAPTERS: ScraperAdapter[] = [
-  doctoraliaAdapter,
-  ...clinicaAdapters,
-];
+import type { ClinicaScraperConfig } from "@shared/schema";
 
 export type { ScrapedSlot, ScraperQuery, AdapterResult };
-export { getDeepLinks };
 
 export interface ScraperSearchResult {
   slots: ScrapedSlot[];
   adapterResults: AdapterResult[];
   deepLinks: Array<{ clinica: string; url: string }>;
-  isLive: boolean; // true if at least one adapter returned real data
+  isLive: boolean;
 }
 
-// Run all adapters in parallel with a timeout per adapter
+// Run a single adapter with a timeout
 async function runAdapter(
   adapter: ScraperAdapter,
   query: ScraperQuery,
   timeoutMs = 10000,
 ): Promise<AdapterResult> {
-  const timeoutPromise = new Promise<AdapterResult>(resolve =>
-    setTimeout(() => resolve({ adapter: adapter.name, status: "error", slots: [], error: "timeout" }), timeoutMs),
+  const timeout = new Promise<AdapterResult>(resolve =>
+    setTimeout(
+      () => resolve({ adapter: adapter.name, status: "error", slots: [], error: "timeout" }),
+      timeoutMs,
+    ),
   );
 
-  const runPromise = adapter.searchAvailability(query).then(
-    slots => ({
-      adapter: adapter.name,
-      status: (slots.length > 0 ? "ok" : "ok") as "ok",
-      slots,
-    }),
+  const run = adapter.searchAvailability(query).then(
+    slots => ({ adapter: adapter.name, status: "ok" as const, slots }),
     err => ({
       adapter: adapter.name,
       status: "error" as const,
@@ -41,29 +35,27 @@ async function runAdapter(
     }),
   );
 
-  const result = await Promise.race([runPromise, timeoutPromise]);
-
-  // Distinguish blocked (no HTML returned = 403) from other errors
-  if (result.status === "ok" && result.slots.length === 0) {
-    // Could be blocked or genuinely no results; we keep status as ok
-  }
-
-  return result;
+  return Promise.race([run, timeout]);
 }
 
-// Search using ALL adapters, return combined results
-export async function searchWithScrapers(query: ScraperQuery): Promise<ScraperSearchResult> {
-  const deepLinks = getDeepLinks(query);
+// Search using all adapters (Doctoralia + dynamic clinic configs)
+export async function searchWithScrapers(
+  query: ScraperQuery,
+  configs: ClinicaScraperConfig[] = [],
+): Promise<ScraperSearchResult> {
+  const enabledConfigs = configs.filter(c => c.habilitada);
+  const deepLinks = buildDeepLinks(query, enabledConfigs);
 
-  // Run all adapters in parallel
-  const adapterResults = await Promise.all(
-    ALL_ADAPTERS.map(adapter => runAdapter(adapter, query)),
-  );
+  const adapters: ScraperAdapter[] = [
+    doctoraliaAdapter,
+    ...enabledConfigs.map(buildAdapterFromConfig),
+  ];
 
-  // Merge all slots and deduplicate by (doctorNombre + fecha + hora)
+  const adapterResults = await Promise.all(adapters.map(a => runAdapter(a, query)));
+
+  // Merge and deduplicate by (doctorNombre + fecha + hora)
   const seen = new Set<string>();
   const slots: ScrapedSlot[] = [];
-
   for (const result of adapterResults) {
     for (const slot of result.slots) {
       const key = `${slot.doctorNombre}-${slot.fecha}-${slot.hora}`;
@@ -74,7 +66,6 @@ export async function searchWithScrapers(query: ScraperQuery): Promise<ScraperSe
     }
   }
 
-  // Sort by date then time
   slots.sort((a, b) => {
     const d = a.fecha.localeCompare(b.fecha);
     return d !== 0 ? d : a.hora.localeCompare(b.hora);
@@ -85,13 +76,21 @@ export async function searchWithScrapers(query: ScraperQuery): Promise<ScraperSe
   return { slots, adapterResults, deepLinks, isLive };
 }
 
-// Check which adapters are currently reachable (useful for health checks)
-export async function checkAdapterAvailability(): Promise<Record<string, boolean>> {
+// Health check: which adapters are reachable
+export async function checkAdapterAvailability(
+  configs: ClinicaScraperConfig[] = [],
+): Promise<Record<string, boolean>> {
+  const allAdapters: ScraperAdapter[] = [
+    doctoraliaAdapter,
+    ...configs.filter(c => c.habilitada).map(buildAdapterFromConfig),
+  ];
+
   const results = await Promise.all(
-    ALL_ADAPTERS.map(async adapter => ({
-      name: adapter.name,
-      available: await adapter.isAvailable().catch(() => false),
+    allAdapters.map(async a => ({
+      name: a.name,
+      available: await a.isAvailable().catch(() => false),
     })),
   );
+
   return Object.fromEntries(results.map(r => [r.name, r.available]));
 }

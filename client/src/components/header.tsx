@@ -12,6 +12,7 @@ export function Header() {
     { href: "/buscar-hora", label: "Buscar Hora" },
     { href: "/#como-funciona", label: "Cómo Funciona" },
     { href: "/#especialidades", label: "Especialidades" },
+    { href: "/admin", label: "Admin" },
   ];
 
   return (

@@ -10,6 +10,8 @@ import {
   type ReservaHora,
   type InsertReservaHora,
   type BusquedaHoraQuery,
+  type ClinicaScraperConfig,
+  type InsertClinicaScraperConfig,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -502,6 +504,111 @@ const DOCTORS: Doctor[] = [
   },
 ];
 
+// ─── Scraper config seed data ─────────────────────────────────────────────────
+
+const SCRAPER_CONFIGS_SEED: InsertClinicaScraperConfig[] = [
+  {
+    nombre: "Clínica Las Condes",
+    regionId: "RM", comuna: "Las Condes",
+    direccion: "Lo Fontecilla 441, Las Condes",
+    telefono: "+56 2 2210 4000",
+    baseUrl: "https://www.clinicalascondes.cl",
+    bookingUrlTemplate: "https://www.clinicalascondes.cl/Atencion-Pacientes/Agenda-de-Horas-por-Especialidad?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud","Fonasa B","Fonasa C","Fonasa D"],
+    precioBase: 75000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Alemana de Santiago",
+    regionId: "RM", comuna: "Vitacura",
+    direccion: "Av. Vitacura 5951, Vitacura",
+    telefono: "+56 2 2210 1111",
+    baseUrl: "https://www.clinicaalemana.cl",
+    bookingUrlTemplate: "https://agendamiento.clinicaalemana.cl/?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud"],
+    precioBase: 85000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Indisa",
+    regionId: "RM", comuna: "Providencia",
+    direccion: "Av. Santa María 1810, Providencia",
+    telefono: "+56 2 2362 5555",
+    baseUrl: "https://www.indisa.cl",
+    bookingUrlTemplate: "https://www.indisa.cl/agendar-hora/?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud","Fonasa B","Fonasa C","Fonasa D"],
+    precioBase: 58000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Dávila",
+    regionId: "RM", comuna: "Recoleta",
+    direccion: "Av. Recoleta 464, Recoleta",
+    telefono: "+56 2 2730 8000",
+    baseUrl: "https://www.davila.cl",
+    bookingUrlTemplate: "https://www.davila.cl/web/agendamiento?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud","Fonasa B","Fonasa C","Fonasa D"],
+    precioBase: 52000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Bupa Santiago",
+    regionId: "RM", comuna: "Las Condes",
+    direccion: "Av. Apoquindo 3990, Las Condes",
+    telefono: "+56 2 2576 2000",
+    baseUrl: "https://www.clinicabupa.cl",
+    bookingUrlTemplate: "https://www.clinicabupa.cl/agenda-de-horas?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud"],
+    precioBase: 72000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Tabancura",
+    regionId: "RM", comuna: "Vitacura",
+    direccion: "Av. Tabancura 1515, Vitacura",
+    telefono: "+56 2 2216 3000",
+    baseUrl: "https://www.tabancura.cl",
+    bookingUrlTemplate: "https://www.tabancura.cl/agendamiento?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud"],
+    precioBase: 65000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Santa María",
+    regionId: "RM", comuna: "Providencia",
+    direccion: "Av. Santa María 0500, Providencia",
+    telefono: "+56 2 2913 0000",
+    baseUrl: "https://www.clinicasantamaria.cl",
+    bookingUrlTemplate: "https://agendamiento.clinicasantamaria.cl/?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud","Fonasa B","Fonasa C","Fonasa D"],
+    precioBase: 62000, habilitada: true,
+  },
+  {
+    nombre: "Hospital Clínico UC-Christus",
+    regionId: "RM", comuna: "Santiago",
+    direccion: "Diagonal Paraguay 362, Santiago",
+    telefono: "+56 2 2354 3000",
+    baseUrl: "https://www.hospitalsantiagouc.cl",
+    bookingUrlTemplate: "https://www.hospitalsantiagouc.cl/atencion-de-pacientes/agendamiento?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud","Fonasa A","Fonasa B","Fonasa C","Fonasa D"],
+    precioBase: 65000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Ciudad del Mar",
+    regionId: "V", comuna: "Viña del Mar",
+    direccion: "Av. Jorge Montt 1985, Viña del Mar",
+    telefono: "+56 32 270 0000",
+    baseUrl: "https://www.ciudaddelmar.cl",
+    bookingUrlTemplate: "https://www.ciudaddelmar.cl/agendamiento?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud","Fonasa B","Fonasa C","Fonasa D"],
+    precioBase: 50000, habilitada: true,
+  },
+  {
+    nombre: "Clínica Universitaria de Concepción",
+    regionId: "VIII", comuna: "Concepción",
+    direccion: "Janequeo 399, Concepción",
+    telefono: "+56 41 268 6000",
+    baseUrl: "https://www.clinicauniversitaria.cl",
+    bookingUrlTemplate: "https://www.clinicauniversitaria.cl/agendamiento?especialidad={especialidad}",
+    previsionAceptada: ["Particular","Banmédica","Colmena","Cruz Blanca","Consalud","Fonasa A","Fonasa B","Fonasa C","Fonasa D"],
+    precioBase: 45000, habilitada: true,
+  },
+];
+
 // ─── Storage interface ────────────────────────────────────────────────────────
 
 export interface IStorage {
@@ -513,7 +620,7 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string, paymentToken?: string): Promise<Order | undefined>;
 
-  // Medical
+  // Medical mock data
   getClinics(): Promise<Clinica[]>;
   getClinic(id: string): Promise<Clinica | undefined>;
   getDoctors(): Promise<Doctor[]>;
@@ -521,18 +628,27 @@ export interface IStorage {
   searchSlots(query: BusquedaHoraQuery): Promise<SlotConDetalles[]>;
   createReserva(reserva: InsertReservaHora): Promise<ReservaHora>;
   getReserva(id: string): Promise<ReservaHora | undefined>;
+
+  // Admin: scraper configurations
+  getScraperConfigs(): Promise<ClinicaScraperConfig[]>;
+  getScraperConfig(id: string): Promise<ClinicaScraperConfig | undefined>;
+  createScraperConfig(data: InsertClinicaScraperConfig): Promise<ClinicaScraperConfig>;
+  updateScraperConfig(id: string, data: Partial<InsertClinicaScraperConfig>): Promise<ClinicaScraperConfig | undefined>;
+  deleteScraperConfig(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private templates: Map<string, Template> = new Map();
   private orders: Map<string, Order> = new Map();
   private reservas: Map<string, ReservaHora> = new Map();
+  private scraperConfigs: Map<string, ClinicaScraperConfig> = new Map();
 
   private clinicas: Map<string, Clinica> = new Map(CLINICAS.map(c => [c.id, c]));
   private doctors: Map<string, Doctor> = new Map(DOCTORS.map(d => [d.id, d]));
 
   constructor() {
     this.seedTemplates();
+    this.seedScraperConfigs();
   }
 
   private seedTemplates() {
@@ -542,6 +658,13 @@ export class MemStorage implements IStorage {
     samples.forEach(t => {
       const id = randomUUID();
       this.templates.set(id, { ...t, id, previewImage: null });
+    });
+  }
+
+  private seedScraperConfigs() {
+    SCRAPER_CONFIGS_SEED.forEach(cfg => {
+      const id = randomUUID();
+      this.scraperConfigs.set(id, { ...cfg, id, creadoEn: new Date().toISOString() });
     });
   }
 
@@ -659,6 +782,40 @@ export class MemStorage implements IStorage {
 
   async getReserva(id: string): Promise<ReservaHora | undefined> {
     return this.reservas.get(id);
+  }
+
+  // ── Scraper config CRUD ─────────────────────────────────────────────────────
+
+  async getScraperConfigs(): Promise<ClinicaScraperConfig[]> {
+    return Array.from(this.scraperConfigs.values()).sort((a, b) =>
+      a.nombre.localeCompare(b.nombre, "es"),
+    );
+  }
+
+  async getScraperConfig(id: string): Promise<ClinicaScraperConfig | undefined> {
+    return this.scraperConfigs.get(id);
+  }
+
+  async createScraperConfig(data: InsertClinicaScraperConfig): Promise<ClinicaScraperConfig> {
+    const id = randomUUID();
+    const cfg: ClinicaScraperConfig = { ...data, id, creadoEn: new Date().toISOString() };
+    this.scraperConfigs.set(id, cfg);
+    return cfg;
+  }
+
+  async updateScraperConfig(
+    id: string,
+    data: Partial<InsertClinicaScraperConfig>,
+  ): Promise<ClinicaScraperConfig | undefined> {
+    const existing = this.scraperConfigs.get(id);
+    if (!existing) return undefined;
+    const updated: ClinicaScraperConfig = { ...existing, ...data };
+    this.scraperConfigs.set(id, updated);
+    return updated;
+  }
+
+  async deleteScraperConfig(id: string): Promise<boolean> {
+    return this.scraperConfigs.delete(id);
   }
 }
 

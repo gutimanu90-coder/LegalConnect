@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Home from "@/pages/home";
 import BuscarHora from "@/pages/buscar-hora";
 import ConfirmarReserva from "@/pages/confirmar-reserva";
+import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/buscar-hora" component={BuscarHora} />
       <Route path="/confirmar-reserva/:id" component={ConfirmarReserva} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

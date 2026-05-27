@@ -120,3 +120,36 @@ export const reservaHoraSchema = z.object({
   hora: z.string().min(1),
   estado: z.string().default("confirmada"),
 });
+
+// ─── Scraper configuration (admin-managed) ───────────────────────────────────
+
+export type ClinicaScraperConfig = {
+  id: string;
+  nombre: string;
+  regionId: string;
+  comuna: string;
+  direccion: string;
+  telefono: string;
+  baseUrl: string;
+  /** URL template with {especialidad}, {ciudad}, {region}, {comuna} placeholders */
+  bookingUrlTemplate: string;
+  previsionAceptada: string[];
+  precioBase: number;
+  habilitada: boolean;
+  creadoEn: string; // ISO date string
+};
+
+export type InsertClinicaScraperConfig = Omit<ClinicaScraperConfig, "id" | "creadoEn">;
+
+export const insertClinicaScraperConfigSchema = z.object({
+  nombre: z.string().min(2, "Nombre requerido"),
+  regionId: z.string().min(1, "Región requerida"),
+  comuna: z.string().min(1, "Comuna requerida"),
+  direccion: z.string().min(1, "Dirección requerida"),
+  telefono: z.string().min(1, "Teléfono requerido"),
+  baseUrl: z.string().url("URL inválida"),
+  bookingUrlTemplate: z.string().min(10, "URL de reserva requerida"),
+  previsionAceptada: z.array(z.string()).min(1, "Al menos una previsión"),
+  precioBase: z.number().int().positive("Precio debe ser positivo"),
+  habilitada: z.boolean().default(true),
+});
