@@ -27,7 +27,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Loader2, AlertCircle, Filter, User } from "lucide-react";
+import { Search, Loader2, AlertCircle, Filter, User, Wifi, WifiOff, ExternalLink } from "lucide-react";
 import { REGIONES, COMUNAS_POR_REGION, ESPECIALIDADES } from "@shared/chile-data";
 import { formatRut, validateRut, getRutError } from "@/lib/rut-validator";
 import type { SlotConDetalles } from "@shared/schema";
@@ -81,11 +81,18 @@ export default function BuscarHora() {
 
   const comunasDisponibles = selectedRegion ? (COMUNAS_POR_REGION[selectedRegion] ?? []) : [];
 
+  type SearchResult = {
+    slots: (SlotConDetalles & { bookingUrl?: string; isLive?: boolean; source?: string })[];
+    deepLinks: Array<{ clinica: string; url: string }>;
+    isLive: boolean;
+    sources: Array<{ adapter: string; status: string; count: number; error?: string }>;
+  };
+
   // ─── Search query ──────────────────────────────────────────────────────────
-  const { data: slots, isLoading: isSearching, error: searchError, refetch } = useQuery<SlotConDetalles[]>({
+  const { data: searchResult, isLoading: isSearching, error: searchError, refetch } = useQuery<SearchResult>({
     queryKey: ["/api/medico/buscar", searchParams],
     queryFn: async () => {
-      if (!searchParams) return [];
+      if (!searchParams) return { slots: [], deepLinks: [], isLive: false, sources: [] };
       const params = new URLSearchParams();
       params.set("especialidadId", searchParams.especialidadId);
       if (searchParams.regionId) params.set("regionId", searchParams.regionId);
@@ -98,6 +105,10 @@ export default function BuscarHora() {
     },
     enabled: !!searchParams,
   });
+
+  const slots = searchResult?.slots ?? [];
+  const deepLinks = searchResult?.deepLinks ?? [];
+  const isLive = searchResult?.isLive ?? false;
 
   // ─── Booking mutation ──────────────────────────────────────────────────────
   const reservaMutation = useMutation({
@@ -388,8 +399,43 @@ export default function BuscarHora() {
                 </div>
               )}
 
-              {searchParams && !isSearching && slots && (
+              {searchParams && !isSearching && searchResult && (
                 <>
+                  {/* Scraper status banner */}
+                  <div className={`flex items-start gap-2 p-3 rounded-lg mb-4 text-sm ${
+                    isLive
+                      ? "bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800"
+                      : "bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                  }`}>
+                    {isLive ? (
+                      <><Wifi className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-medium">Datos en vivo</span> — disponibilidad obtenida directamente desde los portales de las clínicas.
+                      </div></>
+                    ) : (
+                      <><WifiOff className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-medium">Modo demo</span> — los portales bloquean acceso desde servidores cloud (IP de datacenter).
+                        {" "}Para datos en vivo, configura <code className="text-xs bg-muted px-1 rounded">SCRAPER_PROXY_URL</code> o despliega desde una IP residencial.
+                        {deepLinks.length > 0 && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer font-medium underline">
+                              Ir directamente a los portales de reserva ({deepLinks.length} clínicas)
+                            </summary>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {deepLinks.map(dl => (
+                                <a key={dl.clinica} href={dl.url} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded hover:bg-muted/80 text-foreground">
+                                  {dl.clinica} <ExternalLink className="h-2.5 w-2.5" />
+                                </a>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div></>
+                    )}
+                  </div>
+
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-sm text-muted-foreground">
                       <span className="font-semibold text-foreground">{slots.length}</span>{" "}
