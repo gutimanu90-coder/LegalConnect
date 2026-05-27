@@ -1,28 +1,17 @@
-import { Link } from "wouter";
-import { ShoppingCart, Scale, Menu } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Activity, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./theme-toggle";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
+import { useState } from "react";
 
-interface HeaderProps {
-  cartItemCount?: number;
-  onCartClick?: () => void;
-}
+export function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [location] = useLocation();
 
-export function Header({ cartItemCount = 0, onCartClick }: HeaderProps) {
-  const categories = [
-    { name: "Laboral", href: "/?category=laboral" },
-    { name: "Empresarial", href: "/?category=empresarial" },
-    { name: "Inmobiliario", href: "/?category=inmobiliario" },
-    { name: "Civil", href: "/?category=civil" },
-    { name: "Comercial", href: "/?category=comercial" },
+  const navLinks = [
+    { href: "/buscar-hora", label: "Buscar Hora" },
+    { href: "/#como-funciona", label: "Cómo Funciona" },
+    { href: "/#especialidades", label: "Especialidades" },
   ];
 
   return (
@@ -30,68 +19,59 @@ export function Header({ cartItemCount = 0, onCartClick }: HeaderProps) {
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           <Link href="/">
-            <div className="flex items-center gap-2 hover-elevate active-elevate-2 rounded-md px-3 py-2 cursor-pointer" data-testid="link-home">
-              <Scale className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold text-foreground">LegalDocs</span>
+            <div className="flex items-center gap-2 cursor-pointer rounded-md px-2 py-1 hover:opacity-80 transition-opacity">
+              <Activity className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold text-foreground">HoraMédica</span>
+              <span className="hidden sm:inline text-xs font-medium text-muted-foreground border border-border rounded px-1.5 py-0.5">
+                Chile
+              </span>
             </div>
           </Link>
 
-          <NavigationMenu className="hidden md:flex">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger data-testid="button-categories">Categorías</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4">
-                    {categories.map((category) => (
-                      <li key={category.name}>
-                        <Link href={category.href}>
-                          <div className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover-elevate active-elevate-2 cursor-pointer" data-testid={`link-category-${category.name.toLowerCase()}`}>
-                            <div className="text-sm font-medium leading-none">{category.name}</div>
-                            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                              Plantillas legales de {category.name.toLowerCase()}
-                            </p>
-                          </div>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map(link => (
+              <Link key={link.href} href={link.href}>
+                <span className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-muted ${
+                  location === link.href ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                  {link.label}
+                </span>
+              </Link>
+            ))}
+          </nav>
 
           <div className="flex items-center gap-2">
-            <Link href="/consultas">
-              <Button variant="default" className="hidden sm:flex" data-testid="button-book-consultation">
-                Agendar Consulta
+            <Link href="/buscar-hora">
+              <Button size="sm" className="hidden sm:flex">
+                Buscar Hora
               </Button>
             </Link>
-            
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="icon"
-              className="relative"
-              onClick={onCartClick}
-              data-testid="button-cart"
+              className="md:hidden"
+              onClick={() => setMenuOpen(!menuOpen)}
             >
-              <ShoppingCart className="h-5 w-5" />
-              {cartItemCount > 0 && (
-                <Badge 
-                  className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-accent text-accent-foreground"
-                  data-testid="badge-cart-count"
-                >
-                  {cartItemCount}
-                </Badge>
-              )}
-            </Button>
-
-            <ThemeToggle />
-
-            <Button variant="ghost" size="icon" className="md:hidden" data-testid="button-menu">
-              <Menu className="h-5 w-5" />
+              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
+
+        {menuOpen && (
+          <div className="md:hidden border-t py-3 space-y-1">
+            {navLinks.map(link => (
+              <Link key={link.href} href={link.href}>
+                <div
+                  className="block px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </header>
   );
