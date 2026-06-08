@@ -298,8 +298,9 @@ export default function BuscarHora() {
                       <Select
                         value={selectedRegion}
                         onValueChange={v => {
-                          setSelectedRegion(v);
-                          busquedaForm.setValue("regionId", v);
+                          const val = v === "_all" ? "" : v;
+                          setSelectedRegion(val);
+                          busquedaForm.setValue("regionId", val);
                           busquedaForm.setValue("comuna", "");
                         }}
                       >
@@ -307,7 +308,7 @@ export default function BuscarHora() {
                           <SelectValue placeholder="Todas las regiones" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Todas las regiones</SelectItem>
+                          <SelectItem value="_all">Todas las regiones</SelectItem>
                           {REGIONES.map(r => (
                             <SelectItem key={r.id} value={r.id}>{r.nombre}</SelectItem>
                           ))}
@@ -320,13 +321,13 @@ export default function BuscarHora() {
                         <Label>Comuna</Label>
                         <Select
                           value={busquedaForm.watch("comuna") || ""}
-                          onValueChange={v => busquedaForm.setValue("comuna", v)}
+                          onValueChange={v => busquedaForm.setValue("comuna", v === "_all" ? "" : v)}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Todas las comunas" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Todas las comunas</SelectItem>
+                            <SelectItem value="_all">Todas las comunas</SelectItem>
                             {comunasDisponibles.map(c => (
                               <SelectItem key={c} value={c}>{c}</SelectItem>
                             ))}
