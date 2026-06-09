@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/user/LegalConnect && npm run build --silent >> /tmp/server-startup.log 2>&1 && NODE_ENV=production node dist/index.js >> /tmp/server-startup.log 2>&1 &"
+          }
+        ]
+      }
+    ]
+  }
+}

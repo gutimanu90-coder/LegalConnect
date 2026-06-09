@@ -1,269 +1,202 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookingSchema, insertOrderSchema } from "@shared/schema";
+import { busquedaHoraSchema, reservaHoraSchema, insertClinicaScraperConfigSchema } from "@shared/schema";
+import { REGIONES, COMUNAS_POR_REGION, ESPECIALIDADES } from "@shared/chile-data";
+import { searchWithScrapers, checkAdapterAvailability, type ScrapedSlot } from "./scrapers/index";
+import { buildDeepLinks } from "./scrapers/adapters/clinicas-directas";
+import { fetchHtml } from "./scrapers/http-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
-  // Templates endpoints
-  app.get("/api/templates", async (req, res) => {
-    try {
-      const templates = await storage.getTemplates();
-      res.json(templates);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching templates: " + error.message });
-    }
+
+  // ── Reference data ─────────────────────────────────────────────────────────
+
+  app.get("/api/medico/especialidades", (_req, res) => res.json(ESPECIALIDADES));
+  app.get("/api/medico/regiones", (_req, res) => res.json(REGIONES));
+
+  app.get("/api/medico/comunas/:regionId", (req, res) => {
+    const comunas = COMUNAS_POR_REGION[req.params.regionId];
+    if (!comunas) return res.status(404).json({ message: "Región no encontrada" });
+    res.json(comunas);
   });
 
-  app.get("/api/templates/:id", async (req, res) => {
-    try {
-      const template = await storage.getTemplate(req.params.id);
-      if (!template) {
-        return res.status(404).json({ message: "Template not found" });
-      }
-      res.json(template);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching template: " + error.message });
-    }
+  app.get("/api/medico/clinicas", async (_req, res) => {
+    try { res.json(await storage.getClinics()); }
+    catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
-  // Consultations endpoints
-  app.get("/api/consultations", async (req, res) => {
+  // ── Appointment search ─────────────────────────────────────────────────────
+
+  app.get("/api/medico/buscar", async (req, res) => {
     try {
-      const consultations = await storage.getConsultations();
-      res.json(consultations);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching consultations: " + error.message });
-    }
-  });
-
-  app.get("/api/consultations/:id", async (req, res) => {
-    try {
-      const consultation = await storage.getConsultation(req.params.id);
-      if (!consultation) {
-        return res.status(404).json({ message: "Consultation not found" });
-      }
-      res.json(consultation);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching consultation: " + error.message });
-    }
-  });
-
-  // Bookings endpoint
-  app.post("/api/bookings", async (req, res) => {
-    try {
-      const validatedData = insertBookingSchema.parse(req.body);
-      const booking = await storage.createBooking(validatedData);
-      res.status(201).json(booking);
-    } catch (error: any) {
-      res.status(400).json({ message: "Error creating booking: " + error.message });
-    }
-  });
-
-  app.get("/api/bookings", async (req, res) => {
-    try {
-      const bookings = await storage.getBookings();
-      res.json(bookings);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching bookings: " + error.message });
-    }
-  });
-
-  // Orders endpoints
-  app.post("/api/orders", async (req, res) => {
-    try {
-      const validatedData = insertOrderSchema.parse(req.body);
-      const order = await storage.createOrder(validatedData);
-      res.status(201).json(order);
-    } catch (error: any) {
-      res.status(400).json({ message: "Error creating order: " + error.message });
-    }
-  });
-
-  app.get("/api/orders/:id", async (req, res) => {
-    try {
-      const order = await storage.getOrder(req.params.id);
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-      res.json(order);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching order: " + error.message });
-    }
-  });
-
-  // WebPay Plus integration
-  // Using Transbank test credentials for development
-  const WEBPAY_COMMERCE_CODE = process.env.WEBPAY_COMMERCE_CODE || "597055555532";
-  const WEBPAY_API_KEY = process.env.WEBPAY_API_KEY || "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C";
-  const WEBPAY_URL = "https://webpay3gint.transbank.cl"; // Integration environment
-
-  app.post("/api/create-payment", async (req, res) => {
-    try {
-      const { customerName, customerEmail, phone, items } = req.body;
-
-      if (!items || items.length === 0) {
-        return res.status(400).json({ message: "Cart is empty" });
-      }
-
-      // Server-side validation: recalculate total based on authoritative template pricing
-      let serverTotal = 0;
-      const validatedItems = [];
-
-      for (const item of items) {
-        // Validate quantity: must be positive integer
-        const quantity = Number(item.quantity);
-        if (!Number.isInteger(quantity) || quantity < 1) {
-          return res.status(400).json({ 
-            message: `Invalid quantity for template ${item.id}: must be a positive integer` 
-          });
-        }
-
-        const template = await storage.getTemplate(item.id);
-        if (!template) {
-          return res.status(400).json({ message: `Template ${item.id} not found` });
-        }
-        
-        // Use server-side pricing with validated quantity
-        const itemTotal = template.price * quantity;
-        serverTotal += itemTotal;
-        
-        validatedItems.push({
-          id: template.id,
-          name: template.name,
-          price: template.price,
-          quantity: quantity,
-        });
-      }
-
-      // Create order with validated total
-      const order = await storage.createOrder({
-        customerName,
-        customerEmail,
-        items: JSON.stringify(validatedItems),
-        total: serverTotal,
-        status: "pending",
+      const parsed = busquedaHoraSchema.safeParse({
+        especialidadId: req.query.especialidadId,
+        regionId: req.query.regionId || undefined,
+        comuna: req.query.comuna || undefined,
+        desde: req.query.desde || undefined,
+        hasta: req.query.hasta || undefined,
       });
+      if (!parsed.success) return res.status(400).json({ message: "Parámetros inválidos", errors: parsed.error.flatten() });
 
-      // Simulate WebPay Plus transaction creation
-      // In a real implementation, you would call the Transbank API here
-      const buyOrder = `ORDER-${order.id}`;
-      const sessionId = `SESSION-${Date.now()}`;
-      const returnUrl = `${req.protocol}://${req.get('host')}/api/payment-return`;
+      const query = parsed.data;
+      const configs = await storage.getScraperConfigs();
 
-      // For test environment, we'll return a mock URL
-      const mockToken = `${Buffer.from(order.id).toString('base64')}`;
-      const webpayUrl = `${WEBPAY_URL}/rswebpaytransaction/webpay.htm?token=${mockToken}`;
+      const [mockSlots, scraperResult] = await Promise.all([
+        storage.searchSlots(query),
+        searchWithScrapers(query, configs).catch(() => ({ slots: [], adapterResults: [], deepLinks: [], isLive: false })),
+      ]);
 
-      // Update order with payment token
-      await storage.updateOrderStatus(order.id, "payment_initiated", mockToken);
+      const liveSlots = scraperResult.slots.map(convertScrapedSlot);
+      const allSlots = deduplicateSlots([...liveSlots, ...mockSlots]);
 
       res.json({
-        url: webpayUrl,
-        token: mockToken,
-        orderId: order.id,
+        slots: allSlots,
+        deepLinks: scraperResult.deepLinks,
+        isLive: scraperResult.isLive,
+        sources: scraperResult.adapterResults.map(r => ({
+          adapter: r.adapter, status: r.status, count: r.slots.length, error: r.error,
+        })),
       });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error creating payment: " + error.message });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
     }
   });
 
-  app.post("/api/payment-return", async (req, res) => {
+  app.post("/api/medico/reservar", async (req, res) => {
     try {
-      const { token_ws } = req.body;
+      const parsed = reservaHoraSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Datos inválidos", errors: parsed.error.flatten() });
+      const reserva = await storage.createReserva(parsed.data);
+      res.status(201).json(reserva);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
 
-      if (!token_ws) {
-        return res.status(400).json({ message: "Missing payment token" });
-      }
+  app.get("/api/medico/reserva/:id", async (req, res) => {
+    try {
+      const reserva = await storage.getReserva(req.params.id);
+      if (!reserva) return res.status(404).json({ message: "Reserva no encontrada" });
+      res.json(reserva);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
 
-      // Decode the token to get order ID (in production, verify with Transbank)
-      const orderId = Buffer.from(token_ws, 'base64').toString('utf8');
-      const order = await storage.getOrder(orderId);
+  app.get("/api/medico/deep-links", async (req, res) => {
+    const { especialidadId, regionId, comuna } = req.query as Record<string, string>;
+    if (!especialidadId) return res.status(400).json({ message: "especialidadId requerido" });
+    const configs = await storage.getScraperConfigs();
+    const links = buildDeepLinks({ especialidadId, regionId, comuna }, configs.filter(c => c.habilitada));
+    res.json(links);
+  });
 
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-
-      // Verify token matches what we created for this order
-      if (order.paymentToken !== token_ws) {
-        return res.status(403).json({ message: "Invalid payment token" });
-      }
-
-      // Verify order is in correct state to complete
-      if (order.status !== "payment_initiated") {
-        return res.status(400).json({ 
-          message: `Order cannot be completed from status: ${order.status}` 
-        });
-      }
-
-      // In production, you would verify the payment status with Transbank here
-      // For testing, we'll mark it as completed
-      await storage.updateOrderStatus(orderId, "completed", token_ws);
-
+  app.get("/api/medico/scrapers/status", async (_req, res) => {
+    try {
+      const configs = await storage.getScraperConfigs();
+      const availability = await checkAdapterAvailability(configs);
       res.json({
-        success: true,
-        orderId: orderId,
-        status: "completed",
+        proxyConfigured: !!process.env.SCRAPER_PROXY_URL,
+        adapters: availability,
+        note: process.env.SCRAPER_PROXY_URL
+          ? "Proxy activo — scraping en vivo habilitado"
+          : "Sin proxy — configura SCRAPER_PROXY_URL para habilitar scraping desde IPs residenciales.",
       });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error processing payment return: " + error.message });
-    }
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
-  app.get("/api/payment-status/:orderId", async (req, res) => {
-    try {
-      const order = await storage.getOrder(req.params.orderId);
-      if (!order) {
-        return res.status(404).json({ message: "Order not found" });
-      }
-      res.json({
-        orderId: order.id,
-        status: order.status,
-        total: order.total,
-      });
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching payment status: " + error.message });
-    }
+  // ── Admin: scraper configurations ──────────────────────────────────────────
+
+  app.get("/api/admin/clinicas-scraper", async (_req, res) => {
+    try { res.json(await storage.getScraperConfigs()); }
+    catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
-  // Cart endpoints
-  app.get("/api/cart", async (req, res) => {
+  app.post("/api/admin/clinicas-scraper", async (req, res) => {
     try {
-      const cartItems = await storage.getCartItems();
-      res.json(cartItems);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error fetching cart: " + error.message });
-    }
+      const parsed = insertClinicaScraperConfigSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Datos inválidos", errors: parsed.error.flatten() });
+      const cfg = await storage.createScraperConfig(parsed.data);
+      res.status(201).json(cfg);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
-  app.post("/api/cart", async (req, res) => {
+  app.get("/api/admin/clinicas-scraper/:id", async (req, res) => {
     try {
-      const item = await storage.addCartItem(req.body);
-      res.status(201).json(item);
-    } catch (error: any) {
-      res.status(400).json({ message: "Error adding to cart: " + error.message });
-    }
+      const cfg = await storage.getScraperConfig(req.params.id);
+      if (!cfg) return res.status(404).json({ message: "Configuración no encontrada" });
+      res.json(cfg);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
-  app.delete("/api/cart/:id", async (req, res) => {
+  app.put("/api/admin/clinicas-scraper/:id", async (req, res) => {
     try {
-      await storage.removeCartItem(req.params.id);
+      const parsed = insertClinicaScraperConfigSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Datos inválidos", errors: parsed.error.flatten() });
+      const updated = await storage.updateScraperConfig(req.params.id, parsed.data);
+      if (!updated) return res.status(404).json({ message: "Configuración no encontrada" });
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/admin/clinicas-scraper/:id", async (req, res) => {
+    try {
+      const updated = await storage.updateScraperConfig(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ message: "Configuración no encontrada" });
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/admin/clinicas-scraper/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteScraperConfig(req.params.id);
+      if (!deleted) return res.status(404).json({ message: "Configuración no encontrada" });
       res.status(204).send();
-    } catch (error: any) {
-      res.status(500).json({ message: "Error removing from cart: " + error.message });
-    }
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
-  app.delete("/api/cart", async (req, res) => {
+  // Test reachability of a clinic's baseUrl
+  app.get("/api/admin/clinicas-scraper/:id/test", async (req, res) => {
     try {
-      await storage.clearCart();
-      res.status(204).send();
-    } catch (error: any) {
-      res.status(500).json({ message: "Error clearing cart: " + error.message });
-    }
+      const cfg = await storage.getScraperConfig(req.params.id);
+      if (!cfg) return res.status(404).json({ message: "Configuración no encontrada" });
+      const html = await fetchHtml(cfg.baseUrl + "/").catch(() => null);
+      res.json({ reachable: html !== null, url: cfg.baseUrl });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   const httpServer = createServer(app);
-
   return httpServer;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function convertScrapedSlot(s: ScrapedSlot): any {
+  return {
+    id: s.id,
+    doctorId: `scraped-${s.source}`,
+    clinicaId: `scraped-${s.source}`,
+    fecha: s.fecha, hora: s.hora,
+    precio: s.precio, tipoPrecio: "Particular",
+    bookingUrl: s.bookingUrl, source: s.source, isLive: true,
+    doctor: {
+      id: `scraped-${s.source}`, nombre: s.doctorNombre,
+      especialidadId: s.especialidadId, clinicaId: `scraped-${s.source}`,
+      diasTrabajo: [], horasTrabajo: [],
+      precioParticular: s.precio ?? 0, precioFonasa: 0,
+    },
+    clinica: {
+      id: `scraped-${s.source}`, nombre: s.clinicaNombre,
+      regionId: "RM", comuna: s.clinicaComunidad,
+      direccion: s.clinicaDireccion, telefono: "",
+      url: s.bookingUrl, previsionAceptada: s.previsionAceptada,
+      precioBase: s.precio ?? 0,
+    },
+  };
+}
+
+function deduplicateSlots(slots: any[]): any[] {
+  const seen = new Set<string>();
+  return slots.filter(s => {
+    const key = `${s.doctor.nombre}-${s.fecha}-${s.hora}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
