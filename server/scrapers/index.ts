@@ -16,7 +16,7 @@ export interface ScraperSearchResult {
 async function runAdapter(
   adapter: ScraperAdapter,
   query: ScraperQuery,
-  timeoutMs = 10000,
+  timeoutMs = 5000,
 ): Promise<AdapterResult> {
   const timeout = new Promise<AdapterResult>(resolve =>
     setTimeout(

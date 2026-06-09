@@ -100,10 +100,15 @@ export default function BuscarHora() {
       if (searchParams.desde) params.set("desde", searchParams.desde);
       if (searchParams.hasta) params.set("hasta", searchParams.hasta);
       const res = await fetch(`/api/medico/buscar?${params}`);
-      if (!res.ok) throw new Error("Error al buscar horas");
+      if (!res.ok) {
+        const body = await res.text().catch(() => res.statusText);
+        throw new Error(`${res.status}: ${body}`);
+      }
       return res.json();
     },
     enabled: !!searchParams,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const slots = searchResult?.slots ?? [];
@@ -168,6 +173,8 @@ export default function BuscarHora() {
       comuna: data.comuna || undefined,
     };
     setSearchParams(clean);
+    // Force re-fetch even if same params were used before
+    setTimeout(() => refetch(), 0);
   }
 
   function handleConfirmarReserva() {
@@ -392,10 +399,15 @@ export default function BuscarHora() {
                 </div>
               )}
 
-              {searchParams && searchError && (
-                <div className="flex flex-col items-center gap-2 h-64 justify-center text-destructive">
+              {searchParams && !isSearching && searchError && (
+                <div className="flex flex-col items-center gap-3 h-64 justify-center text-destructive">
                   <AlertCircle className="h-8 w-8" />
-                  <p className="text-sm">Error al buscar. Intenta nuevamente.</p>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Error al buscar</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                      {(searchError as Error).message}
+                    </p>
+                  </div>
                   <Button variant="outline" size="sm" onClick={() => refetch()}>Reintentar</Button>
                 </div>
               )}
